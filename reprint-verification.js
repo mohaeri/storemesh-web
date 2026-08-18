@@ -5,7 +5,7 @@ export function verifiedReprintScan(scannedValue, expectedIdentity) {
   return scanned;
 }
 
-export async function submitVerifiedReprint({jobId,scannedValue,expectedIdentity,send}) {
+export async function submitVerifiedReprint({jobId,scannedValue,expectedIdentity,sessionId,send}) {
   const verifiedScan=verifiedReprintScan(scannedValue,expectedIdentity);
-  return send(`/api/print-jobs/${jobId}/retry`,{method:'POST',body:JSON.stringify({verifiedScan})});
+  return send(`/api/print-jobs/${jobId}/retry`,{method:'POST',body:JSON.stringify({verifiedScan,sessionId})});
 }

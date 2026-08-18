@@ -1,4 +1,5 @@
 import { submitVerifiedReprint } from './reprint-verification.js';
+import { bindScannerInputs } from './scanner-capture.js';
 
 const API=localStorage.api||'http://127.0.0.1:3000';
 const CLOUD=localStorage.cloudApi||'http://127.0.0.1:4000';
@@ -38,7 +39,7 @@ async function request(path,options={}){
 }
 const post=(path,body={})=>request(path,{method:'POST',headers:{'Idempotency-Key':key()},body:JSON.stringify(body)});
 async function ensureSession(){if(!state.sessionId){state.sessionId=(await post('/api/sessions',{operatorId:actor(),deviceId:deviceId(),station:'web-console'})).id;sessionStorage.sessionId=state.sessionId}return state.sessionId}
-function scannedContainer(code){const normalized=String(code||'').trim();if(!normalized)throw Error('اسکن ظرف یا سینی الزامی است');const container=(state.data.containers?.items||[]).find(x=>x.code===normalized);if(!container)throw Error('کد اسکن‌شده در فهرست ظروف معتبر نیست');return container}
+function scannedContainer(code,input){const normalized=String(code||'').trim();if(!normalized||input?.dataset.scanVerified!=='true')throw Error('اسکن سخت‌افزاری ظرف یا سینی الزامی است');const container=(state.data.containers?.items||[]).find(x=>x.code===normalized);if(!container)throw Error('کد اسکن‌شده در فهرست ظروف معتبر نیست');return container}
 function toast(message,type='ok'){const el=$('#toast');el.textContent=message;el.className=`show ${type}`;setTimeout(()=>el.className='',3200)}
 function status(value){const cls=/APPROVED|ACTIVE|AVAILABLE|COMPLETED|DELIVERED|CONFIRMED|RECEIVED|RELEASED/.test(value)?'good':/FAILED|REJECTED|CANCELLED|WASTED/.test(value)?'bad':/QUARANTINE|PENDING|SUSPENDED/.test(value)?'warn':'neutral';return `<span class="status ${cls}">${esc(value)}</span>`}
 function empty(text='هنوز داده‌ای ثبت نشده است'){return `<div class="empty"><b>◇</b><p>${text}</p></div>`}
@@ -46,6 +47,7 @@ function table(headers,rows){return rows.length?`<div class="table-wrap"><table>
 function options(items,label='code'){return items.map(x=>`<option value="${esc(x.id)}">${esc(x[label]||x.title||x.id)}</option>`).join('')}
 function panel(title,body,extra=''){return `<section class="panel"><div class="panel-head"><div><h2>${title}</h2>${extra}</div></div>${body}</section>`}
 function field(label,name,type='text',value='',attrs=''){return `<label><span>${label}</span><input name="${name}" type="${type}" value="${esc(value)}" ${attrs}></label>`}
+function scanField(label,name='containerCode'){return `<label><span>${label}</span><input name="${name}" data-scanner-input data-scan-verified="false" readonly inputmode="none" autocomplete="off" required placeholder="برای اسکن لمس کنید"></label>`}
 function select(label,name,items){return `<label><span>${label}</span><select name="${name}">${items.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`}
 
 function shell(){
@@ -71,7 +73,7 @@ function renderPage(){
   <div class="two-col">${panel('آخرین بچ‌ها',inventoryTable(inv.slice(-6).reverse()))}${panel('وضعیت چاپ و لیبل',printCards(prints.slice(-5).reverse()))}</div>`;
  }
  case'receiving':return `<div class="page-intro"><div><h2>دریافت و توزین ورودی</h2><p>ایجاد بچ قابل رهگیری و صدور خودکار لیبل QR</p></div><span class="device-chip">◉ ترازو آماده</span></div>
-  ${panel('فرم دریافت جدید',`<form data-action="receive" class="form-grid">${field('اسکن QR سبد','containerCode','','','required autocomplete="off"')}${field('تأمین‌کننده','supplier','','تأمین‌کننده نمونه','required')}${field('محصول','product','','Truffle','required')}${select('گرید','grade',['A','B','C','INDUSTRIAL'])}${select('اندازه','size',['Small','Medium','Large','Mixed'])}${field('دوره برداشت','harvestPeriod','','2026-Q3')}${field('وزن خالص (kg)','weightKg','number','12.5','step=".001" min=".001" required')}<div class="scale-readout"><small>خوانش ترازو</small><b>12.500 <em>kg</em></b><span>پایدار ✓</span></div><button class="primary">ثبت دریافت و چاپ لیبل</button></form>`)}
+  ${panel('فرم دریافت جدید',`<form data-action="receive" class="form-grid">${scanField('اسکن QR سبد')}${field('تأمین‌کننده','supplier','','تأمین‌کننده نمونه','required')}${field('محصول','product','','Truffle','required')}${select('گرید','grade',['A','B','C','INDUSTRIAL'])}${select('اندازه','size',['Small','Medium','Large','Mixed'])}${field('دوره برداشت','harvestPeriod','','2026-Q3')}${field('وزن خالص (kg)','weightKg','number','12.5','step=".001" min=".001" required')}<div class="scale-readout"><small>خوانش ترازو</small><b>12.500 <em>kg</em></b><span>پایدار ✓</span></div><button class="primary">ثبت دریافت و چاپ لیبل</button></form>`)}
   ${panel('دریافت‌های اخیر',inventoryTable(inv.filter(x=>x.status==='RECEIVED').slice(-8).reverse()))}`;
  case'inventory':return `<div class="toolbar"><div class="search">⌕ <input id="inventorySearch" placeholder="جست‌وجوی کد، محصول، گرید یا زون"></div><button data-export="inventory">دریافت CSV</button><button data-go="receiving" class="primary">＋ بچ جدید</button></div>
   <div class="filters"><button class="active">همه ${inv.length}</button>${['RECEIVING','COLD_ROOM','SORTING','PROCESSING','PACKAGING','QUARANTINE'].map(z=>`<button data-zone="${z}">${z} ${inv.filter(x=>x.zone===z).length}</button>`).join('')}</div>
@@ -82,8 +84,8 @@ function renderPage(){
   ${panel('تخصیص بچ',`<form data-action="assign-container" class="stack-form"><label><span>کانتینر</span><select name="containerId">${options(containers)}</select></label><label><span>بچ</span><select name="batchId">${options(inv)}</select></label><button class="primary">تخصیص به کانتینر</button></form>`)}</div>
   <div class="container-grid">${containers.length?containers.map(c=>`<article class="container-card"><div><span class="box-icon">□</span>${status(c.status)}</div><h3>${esc(c.code)}</h3><p>${esc(c.type)} · ${esc(c.zone)}</p><div class="meter"><span style="width:${Math.min(100,(c.batchIds?.reduce((n,id)=>n+(inv.find(x=>x.id===id)?.weightKg||0),0)/c.capacityKg)*100)}%"></span></div><small>${c.batchIds?.length||0} بچ از ظرفیت ${fa(c.capacityKg)} kg</small></article>`).join(''):empty()}</div>`;
  case'production':return `<div class="process-strip">${['SORT','WASH','SLICE','FREEZE','FREEZE_DRY','DRY','MERGE'].map((x,i)=>`<div><span>${i+1}</span><b>${x}</b></div>`).join('')}</div>
-  <div class="two-col">${panel('اجرای فرآیند تولید',`<form data-action="transform" class="stack-form"><label><span>بچ ورودی</span><select name="batchId">${options(inv.filter(x=>x.weightKg>0))}</select></label>${field('اسکن QR ظرف/سینی','containerCode','','','required autocomplete="off"')}${select('فرآیند','process',['WASH','SLICE','FREEZE','FREEZE_DRY','DRY'])}${field('وزن مصرفی kg','consumeWeightKg','number','10','step=".001"')}${field('وزن خروجی kg','outputWeightKg','number','9.2','step=".001"')}<div class="form-row">${field('محصول خروجی','product','','Truffle')}${field('گرید','grade','','A')}</div><button class="primary">ثبت فرآوری و شجره</button></form>`)}
-  ${panel('تفکیک چندخروجی',`<form data-action="sorting" class="stack-form"><label><span>بچ ورودی</span><select name="batchId">${options(inv.filter(x=>x.weightKg>0))}</select></label>${field('اسکن QR سبد','containerCode','','','required autocomplete="off"')}<div class="form-row">${field('خروجی A kg','a','number','5')}${field('خروجی B kg','b','number','3')}</div><button class="primary">اجرای Sorting</button></form>`)}</div>
+  <div class="two-col">${panel('اجرای فرآیند تولید',`<form data-action="transform" class="stack-form"><label><span>بچ ورودی</span><select name="batchId">${options(inv.filter(x=>x.weightKg>0))}</select></label>${scanField('اسکن QR ظرف/سینی')}${select('فرآیند','process',['WASH','SLICE','FREEZE','FREEZE_DRY','DRY'])}${field('وزن مصرفی kg','consumeWeightKg','number','10','step=".001"')}${field('وزن خروجی kg','outputWeightKg','number','9.2','step=".001"')}<div class="form-row">${field('محصول خروجی','product','','Truffle')}${field('گرید','grade','','A')}</div><button class="primary">ثبت فرآوری و شجره</button></form>`)}
+  ${panel('تفکیک چندخروجی',`<form data-action="sorting" class="stack-form"><label><span>بچ ورودی</span><select name="batchId">${options(inv.filter(x=>x.weightKg>0))}</select></label>${scanField('اسکن QR سبد')}<div class="form-row">${field('خروجی A kg','a','number','5')}${field('خروجی B kg','b','number','3')}</div><button class="primary">اجرای Sorting</button></form>`)}</div>
   ${panel('بچ‌های فرآوری‌شده',inventoryTable(inv.filter(x=>x.process||/WASH|SLIC|FROZEN|DRIED|SORTED|MERGED/.test(x.status))))}`;
  case'quality':{const checks=d['quality-checks']?.items||[],quarantined=inv.filter(x=>x.zone==='QUARANTINE');return `<div class="kpis compact"><article><span class="kpi-icon green">✓</span><div><small>تأیید شده</small><b>${checks.filter(x=>x.result==='APPROVED').length}</b></div></article><article><span class="kpi-icon orange">!</span><div><small>قرنطینه</small><b>${quarantined.length}</b></div></article><article><span class="kpi-icon red">×</span><div><small>رد شده</small><b>${checks.filter(x=>x.result==='REJECTED').length}</b></div></article></div>
   <div class="two-col">${panel('ثبت نتیجه بازرسی',`<form data-action="quality" class="stack-form"><label><span>بچ</span><select name="batchId">${options(inv)}</select></label>${select('نتیجه','result',['APPROVED','QUARANTINED','REJECTED'])}${field('توضیحات','notes','','بازرسی ظاهری و دمایی')}<button class="primary">ثبت نتیجه QC</button></form>`)}
@@ -109,7 +111,7 @@ function renderPage(){
 
 function inventoryTable(items){return table(['کد بچ','محصول','گرید/اندازه','وزن','زون','وضعیت'],items.map(x=>`<tr><td><b class="mono">${esc(x.code)}</b></td><td>${esc(x.product)}</td><td>${esc(x.grade)} · ${esc(x.size)}</td><td><b>${fa(x.weightKg)}</b> kg</td><td>${esc(x.zone)}</td><td>${status(x.status)}</td></tr>`))}
 function taskCards(items){return items.length?`<div class="task-list">${items.map(t=>`<article><span class="priority p${Math.ceil((t.priority||50)/25)}">${t.priority||50}</span><div><b>${esc(t.title)}</b><small>${esc(t.zone)} · ${dt(t.createdAt)}</small></div>${status(t.status)}${t.status==='OPEN'?`<button data-task="${t.id}">شروع</button>`:''}</article>`).join('')}</div>`:empty('کاری در صف نیست')}
-function printCards(items){return items.length?`<div class="print-list">${items.map(j=>`<article><span class="label-icon">▤</span><div><b>${esc(j.label)}</b><small>${esc(j.entityType)} · تلاش ${j.attempts||0}</small></div>${status(j.status)}<div class="actions">${j.status==='PENDING'?`<button data-print="${j.id}" data-print-action="complete">چاپ شد</button><button data-print="${j.id}" data-print-action="fail">خطا</button>`:j.status==='FAILED'?`<label class="reprint-scan"><span>اسکن لیبل موجود</span><input data-reprint-scan inputmode="none" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="اسکنر را روی لیبل بگیرید"></label><button data-print="${j.id}" data-print-action="retry">تأیید اسکن و چاپ مجدد</button>`:''}</div></article>`).join('')}</div>`:empty('صف چاپ خالی است')}
+function printCards(items){return items.length?`<div class="print-list">${items.map(j=>`<article><span class="label-icon">▤</span><div><b>${esc(j.label)}</b><small>${esc(j.entityType)} · تلاش ${j.attempts||0}</small></div>${status(j.status)}<div class="actions">${j.status==='PENDING'?`<button data-print="${j.id}" data-print-action="complete">چاپ شد</button><button data-print="${j.id}" data-print-action="fail">خطا</button>`:j.status==='FAILED'?`<label class="reprint-scan"><span>اسکن لیبل موجود</span><input data-reprint-scan data-scanner-input data-scan-verified="false" readonly inputmode="none" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="اسکنر را روی لیبل بگیرید"></label><button data-print="${j.id}" data-print-action="retry">تأیید اسکن و چاپ مجدد</button>`:''}</div></article>`).join('')}</div>`:empty('صف چاپ خالی است')}
 function zoneChart(inv){const groups=Object.entries(inv.reduce((a,x)=>(a[x.zone]=(a[x.zone]||0)+x.weightKg,a),{})).sort((a,b)=>b[1]-a[1]),max=Math.max(1,...groups.map(x=>x[1]));return groups.length?`<div class="bar-chart">${groups.map(([z,n])=>`<div><span>${esc(z)}</span><i><b style="width:${n/max*100}%"></b></i><strong>${fa(n)} kg</strong></div>`).join('')}</div>`:empty()}
 function shipmentActions(s){const next={READY:'load',LOADED:'dispatch',DISPATCHED:'deliver'}[s.status];return next?`<button data-shipment="${s.id}" data-shipment-action="${next}">${{load:'بارگیری',dispatch:'ارسال',deliver:'تحویل'}[next]}</button>`:'—'}
 function packageAction(p){const next={DRAFT:'pack',PACKING:'seal',READY_FOR_LABEL:'print',PRINTING:'print_success',LABEL_PENDING:'retry',LABEL_PRINTED:'ready'}[p.status];return next?`<button data-package="${p.id}" data-package-action="${next}">${{pack:'شروع',seal:'پلمب',print:'چاپ',print_success:'تأیید چاپ',retry:'تلاش مجدد',ready:'آماده ارسال'}[next]}</button>`:'—'}
@@ -119,7 +121,7 @@ async function loadData(){
  try{const results=await Promise.all(endpoints.map(async e=>[e,await request('/api/'+e).catch(()=>({items:[]}))]));state.data=Object.fromEntries(results)}
  catch(e){toast(e.message,'bad')}finally{state.loading=false;render();if(state.route==='cloud')loadCloud()}
 }
-function render(){if(!state.token){$('#loginDialog').showModal();return}$('#app').innerHTML=shell();bindShell()}
+function render(){if(!state.token){$('#loginDialog').showModal();return}$('#app').innerHTML=shell();bindShell();bindScannerInputs($('#app'))}
 function bindShell(){
  $('#logout')?.addEventListener('click',()=>{sessionStorage.clear();state.token='';state.sessionId='';location.reload()});
  $('#menuButton')?.addEventListener('click',()=>document.querySelector('aside').classList.toggle('open'));
@@ -128,13 +130,13 @@ function bindShell(){
  $('#inventorySearch')?.addEventListener('input',e=>{$('#inventoryTable').innerHTML=inventoryTable((state.data.inventory?.items||[]).filter(x=>Object.values(x).some(v=>String(v).toLowerCase().includes(e.target.value.toLowerCase()))))});
  document.querySelectorAll('[data-zone]').forEach(b=>b.onclick=()=>{$('#inventoryTable').innerHTML=inventoryTable((state.data.inventory?.items||[]).filter(x=>x.zone===b.dataset.zone));document.querySelectorAll('[data-zone]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
  document.querySelectorAll('[data-task]').forEach(b=>b.onclick=()=>act(()=>post(`/api/tasks/${b.dataset.task}/claim`,{operatorId:actor()}),'وظیفه به شما تخصیص یافت'));
- document.querySelectorAll('[data-print]').forEach(b=>b.onclick=()=>act(()=>{
-  let body;
-  if(b.dataset.printAction==='fail')body=JSON.stringify({reason:'خطای چاپگر'});
+ document.querySelectorAll('[data-print]').forEach(b=>b.onclick=()=>act(async()=>{
+  const sessionId=await ensureSession();let body=JSON.stringify({sessionId});
+  if(b.dataset.printAction==='fail')body=JSON.stringify({reason:'خطای چاپگر',sessionId});
   if(b.dataset.printAction==='retry'){
    const job=(state.data['print-jobs']?.items||[]).find(j=>String(j.id)===b.dataset.print);
    const scanned=b.closest('article')?.querySelector('[data-reprint-scan]')?.value;
-   return submitVerifiedReprint({jobId:b.dataset.print,scannedValue:scanned,expectedIdentity:job?.label,send:request});
+   return submitVerifiedReprint({jobId:b.dataset.print,scannedValue:scanned,expectedIdentity:job?.label,sessionId,send:request});
   }
   return request(`/api/print-jobs/${b.dataset.print}/${b.dataset.printAction}`,{method:'POST',body});
  }, 'وضعیت چاپ به‌روزرسانی شد'));
@@ -149,12 +151,12 @@ async function act(fn,message){try{await fn();toast(message);await loadData()}ca
 async function handleForm(e){
  e.preventDefault();const f=e.currentTarget,a=f.dataset.action,v=Object.fromEntries(new FormData(f));try{
   let result;
-  if(a==='receive'){const container=scannedContainer(v.containerCode);result=await post('/api/receiving',{supplier:v.supplier,product:v.product,grade:v.grade,size:v.size,harvestPeriod:v.harvestPeriod,weightKg:Number(v.weightKg),containerId:container.id,sessionId:await ensureSession()})}
+  if(a==='receive'){const container=scannedContainer(v.containerCode,f.elements.containerCode);result=await post('/api/receiving',{supplier:v.supplier,product:v.product,grade:v.grade,size:v.size,harvestPeriod:v.harvestPeriod,weightKg:Number(v.weightKg),containerId:container.id,sessionId:await ensureSession()})}
   if(a==='move')result=await post('/api/movements',{...v,sessionId:await ensureSession()});
   if(a==='container')result=await post('/api/containers',{...v,capacityKg:Number(v.capacityKg)});
   if(a==='assign-container')result=await post(`/api/containers/${v.containerId}/assign`,{batchId:v.batchId,sessionId:await ensureSession()});
-  if(a==='transform'){const container=scannedContainer(v.containerCode),scanField=['FREEZE','FREEZE_DRY'].includes(v.process)?'trayId':'containerId';result=await post('/api/transforms',{process:v.process,inputs:[{batchId:v.batchId,consumeWeightKg:Number(v.consumeWeightKg)}],outputWeightKg:Number(v.outputWeightKg),product:v.product,grade:v.grade,[scanField]:container.id,sessionId:await ensureSession()})}
-  if(a==='sorting'){const container=scannedContainer(v.containerCode);result=await post('/api/sorting',{batchId:v.batchId,containerId:container.id,outputs:[{grade:'A',size:'Large',weightKg:Number(v.a)},{grade:'B',size:'Mixed',weightKg:Number(v.b)}],sessionId:await ensureSession()})}
+  if(a==='transform'){const container=scannedContainer(v.containerCode,f.elements.containerCode),scanKey=['FREEZE','FREEZE_DRY'].includes(v.process)?'trayId':'containerId';result=await post('/api/transforms',{process:v.process,inputs:[{batchId:v.batchId,consumeWeightKg:Number(v.consumeWeightKg)}],outputWeightKg:Number(v.outputWeightKg),product:v.product,grade:v.grade,[scanKey]:container.id,sessionId:await ensureSession()})}
+  if(a==='sorting'){const container=scannedContainer(v.containerCode,f.elements.containerCode);result=await post('/api/sorting',{batchId:v.batchId,containerId:container.id,outputs:[{grade:'A',size:'Large',weightKg:Number(v.a)},{grade:'B',size:'Mixed',weightKg:Number(v.b)}],sessionId:await ensureSession()})}
   if(a==='quality')result=await post('/api/quality-checks',{...v,inspectorId:actor()});
   if(a==='release')result=await post('/api/quality-checks/release',{...v,inspectorId:actor()});
   if(a==='package')result=await post('/api/packages',{type:v.type,level:v.level,sessionId:await ensureSession(),...(v.childPackageId?{childPackageIds:[v.childPackageId]}:{items:[{batchId:v.batchId,weightKg:Number(v.weightKg)}]})});
