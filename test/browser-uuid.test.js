@@ -1,0 +1,1 @@
+import test from'node:test';import assert from'node:assert/strict';import{browserUuid}from'../browser-uuid.js';test('UUID generation survives an insecure context without randomUUID',()=>{const id=browserUuid({randomUUID:undefined,getRandomValues:undefined},()=>.25);assert.match(id,/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/)});
