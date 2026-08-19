@@ -1,5 +1,6 @@
 import { submitVerifiedReprint } from './reprint-verification.js';
 import { bindScannerInputs } from './scanner-capture.js';
+import { browserUuid } from './browser-uuid.js';
 
 const API=localStorage.api||'http://127.0.0.1:3000';
 const CLOUD=localStorage.cloudApi||'http://127.0.0.1:4000';
@@ -8,10 +9,10 @@ const $=s=>document.querySelector(s);
 const esc=v=>String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fa=n=>new Intl.NumberFormat('fa-IR',{maximumFractionDigits:2}).format(Number(n)||0);
 const dt=v=>v?new Intl.DateTimeFormat('fa-IR',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'—';
-const key=()=>crypto.randomUUID();
+const key=()=>browserUuid();
 const claims=()=>{try{return JSON.parse(atob(state.token.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')))}catch{return{}}};
 const actor=()=>claims().sub||'web-user';
-const deviceId=()=>{let id=localStorage.deviceId;if(!id){id=`WEB-${crypto.randomUUID()}`;localStorage.deviceId=id}return id};
+const deviceId=()=>{let id=localStorage.deviceId;if(!id){id=`WEB-${browserUuid()}`;localStorage.deviceId=id}return id};
 const routes=[
  ['dashboard','⌂','داشبورد','نمای کلی عملیات'],
  ['receiving','⇲','دریافت','ثبت ورود و توزین'],
