@@ -44,6 +44,7 @@ async function request(path,options={}){
 const post=(path,body={})=>request(path,{method:'POST',headers:{'Idempotency-Key':key()},body:JSON.stringify(body)});
 const remove=path=>request(path,{method:'DELETE',headers:{'Idempotency-Key':key()}});
 const can=permission=>{const user=claims();return user.permissions?.includes('*')||user.permissions?.includes(permission)};
+const canManageUser=user=>{const current=claims();if(current.roles?.includes('ADMIN'))return true;const roles=state.data.roles?.items||[],allowed=new Set(current.permissions||[]),required=(user?.roles||[]).flatMap(code=>roles.find(role=>role.code===code)?.permissions||[]);return !required.includes('*')&&required.every(permission=>allowed.has(permission))};
 async function ensureSession(){if(!state.sessionId){state.sessionId=(await post('/api/sessions',{operatorId:actor(),deviceId:deviceId(),station:'web-console'})).id;sessionStorage.sessionId=state.sessionId}return state.sessionId}
 async function ensurePackagingSession(){if(!state.packagingSessionId){state.packagingSessionId=(await post('/api/packaging/sessions',{deviceId:deviceId(),station:'PACKAGING'})).id;sessionStorage.packagingSessionId=state.packagingSessionId}return state.packagingSessionId}
 function scannedContainer(code,input){const normalized=String(code||'').trim();if(!normalized||input?.dataset.scanVerified!=='true')throw Error('اسکن سخت‌افزاری ظرف یا سینی الزامی است');const container=(state.data.containers?.items||[]).find(x=>x.code===normalized);if(!container)throw Error('کد اسکن‌شده در فهرست ظروف معتبر نیست');return container}
@@ -141,6 +142,11 @@ async function loadData(){
 }
 function render(){if(!state.token){$('#loginDialog').showModal();return}$('#app').innerHTML=shell();bindShell();bindScannerInputs($('#app'))}
 function bindShell(){
+ if(!can('roles:create'))document.querySelector('[data-action="role-create"]')?.closest('section')?.remove();
+ const users=state.data.users?.items||[],roles=state.data.roles?.items||[];
+ document.querySelectorAll('[name="roleCode"] option').forEach(option=>{const role=roles.find(x=>x.code===option.value);if(role&&(role.permissions||[]).some(permission=>permission==='*'||!can(permission)))option.remove()});
+ document.querySelectorAll('[data-badge],[data-pin]').forEach(button=>{const user=users.find(x=>x.id===(button.dataset.badge||button.dataset.pin));if(!can('credentials:issue')||!canManageUser(user))button.remove()});
+ document.querySelectorAll('[data-revoke-role]').forEach(button=>{const user=users.find(x=>x.id===button.dataset.user);if(!canManageUser(user))button.remove()});
  $('#logout')?.addEventListener('click',()=>{sessionStorage.clear();state.token='';state.sessionId='';location.reload()});
  $('#menuButton')?.addEventListener('click',()=>document.querySelector('aside').classList.toggle('open'));
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>location.hash=b.dataset.go);
