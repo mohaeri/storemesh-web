@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';
+test('web task cards expose the full lifecycle and reassign calls',async()=>{const source=await readFile(new URL('../app.js',import.meta.url),'utf8');for(const action of['complete','pause','fail','resume','reopen','reassign']){assert.match(source,new RegExp(`['"]${action}['"]`));assert.match(source,/data-task-action/)}assert.match(source,/\/api\/tasks\/\$\{id\}\/\$\{action\}/);assert.match(source,/\/reassign/)});
