@@ -170,6 +170,7 @@ function bindShell(){
    const scanned=b.closest('article')?.querySelector('[data-reprint-scan]')?.value;
    return submitVerifiedReprint({jobId:b.dataset.print,scannedValue:scanned,expectedIdentity:job?.label,sessionId,send:request});
   }
+  if(b.dataset.printAction==='complete')await request(`/api/print-jobs/${b.dataset.print}/claim`,{method:'POST',body});
   return request(`/api/print-jobs/${b.dataset.print}/${b.dataset.printAction}`,{method:'POST',body});
  }, 'وضعیت چاپ به‌روزرسانی شد'));
  document.querySelectorAll('[data-shipment]').forEach(b=>b.onclick=()=>act(()=>{const action=b.dataset.shipmentAction,body=action==='load'?{vehicle:prompt('شناسه خودرو الزامی است:')}:action==='cancel'?{reason:prompt('علت لغو:')}:{};return post(`/api/shipments/${b.dataset.shipment}/${action}`,body)},'وضعیت محموله تغییر کرد'));
