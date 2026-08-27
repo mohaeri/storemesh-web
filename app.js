@@ -157,7 +157,7 @@ function bindShell(){
  document.querySelectorAll('[name="roleCode"] option').forEach(option=>{const role=roles.find(x=>x.code===option.value);if(role&&(role.permissions||[]).some(permission=>permission==='*'||!can(permission)))option.remove()});
  document.querySelectorAll('[data-badge],[data-pin]').forEach(button=>{const user=users.find(x=>x.id===(button.dataset.badge||button.dataset.pin));if(!can('credentials:issue')||!canManageUser(user))button.remove()});
  document.querySelectorAll('[data-revoke-role]').forEach(button=>{const user=users.find(x=>x.id===button.dataset.user);if(!canManageUser(user))button.remove()});
- $('#logout')?.addEventListener('click',()=>{sessionStorage.clear();state.token='';state.sessionId='';location.reload()});
+ $('#logout')?.addEventListener('click',async()=>{const authSessionId=claims().jti,controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),2500);try{if(authSessionId)await request(`/api/auth/sessions/${authSessionId}/revoke`,{method:'POST',signal:controller.signal})}catch{}finally{clearTimeout(timeout);sessionStorage.clear();state.token='';state.sessionId='';location.reload()}});
  $('#menuButton')?.addEventListener('click',()=>document.querySelector('aside').classList.toggle('open'));
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>location.hash=b.dataset.go);
  document.querySelectorAll('form[data-action]').forEach(f=>f.onsubmit=handleForm);
