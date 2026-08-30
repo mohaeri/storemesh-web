@@ -1,0 +1,1 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFileSync}from'node:fs';const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');test('consumables UI drills into receipt and transaction ledgers',()=>{for(const x of['گردش و رسیدها','/receipts','/transactions','showModal'])assert.ok(app.includes(x),x)});
