@@ -157,7 +157,7 @@ function configuredMachine(values,type,station='web-console'){const stationValue
 
 async function loadData(){
  state.loading=true;render();
- try{const results=await Promise.all(endpoints.map(async e=>[e,await(e==='tasks'?(state.taskSessionId?request(`/api/tasks?eligible=me&sessionId=${encodeURIComponent(state.taskSessionId)}`):Promise.resolve({available:[],mine:[]})):request('/api/'+e)).catch(()=>e==='tasks'?{available:[],mine:[]}:{items:[]})]));state.data=Object.fromEntries(results)}
+ try{const results=await Promise.all(endpoints.map(async e=>[e,await(e==='tasks'?(state.taskSessionId?request(`/api/tasks?eligible=me&sessionId=${encodeURIComponent(state.taskSessionId)}`):Promise.resolve({available:[],mine:[]})):request(e==='audit'?'/api/audit?includeArchived=true':'/api/'+e)).catch(()=>e==='tasks'?{available:[],mine:[]}:{items:[]})]));state.data=Object.fromEntries(results)}
  catch(e){toast(e.message,'bad')}finally{state.loading=false;render();if(state.route==='cloud')loadCloud()}
 }
 function render(){if(!state.token){$('#loginDialog').showModal();return}$('#app').innerHTML=shell();bindShell();bindScannerInputs($('#app'))}
