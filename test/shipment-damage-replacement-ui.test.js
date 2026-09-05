@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';
+test('shipment manager UI damages and replaces cartons or Fresh Shipping Boxes',async()=>{const source=await readFile(new URL('../app.js',import.meta.url),'utf8');for(const token of['data-shipment-replace','آسیب و جایگزینی','PACKAGE یا FRESH_SHIPPING_BOX','/api/packages/${damagedId}/damage','/api/fresh-shipping-boxes/${damagedId}/damage','/api/shipments/${b.dataset.shipmentReplace}/items','replacesItemId'])assert.ok(source.includes(token),`missing ${token}`)});
