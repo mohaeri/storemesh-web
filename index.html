@@ -21,6 +21,15 @@
       <p id="loginError" class="error"></p>
     </form>
   </dialog>
+  <dialog id="passwordDialog">
+    <form id="passwordForm" class="login-card">
+      <h2>تغییر رمز عبور</h2>
+      <label>رمز فعلی<input name="currentPassword" type="password" autocomplete="current-password" required></label>
+      <label>رمز جدید<input name="newPassword" type="password" minlength="8" autocomplete="new-password" required></label>
+      <div class="actions"><button class="primary">تغییر رمز</button><button type="button" id="cancelPassword">انصراف</button></div>
+      <p id="passwordError" class="error"></p>
+    </form>
+  </dialog>
   <script src="node_modules/qrcode-generator/qrcode.js"></script>
   <script type="module" src="app.js?v=full-ui"></script>
 </body>
