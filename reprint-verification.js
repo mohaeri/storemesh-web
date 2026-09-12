@@ -5,7 +5,9 @@ export function verifiedReprintScan(scannedValue, expectedIdentity) {
   return scanned;
 }
 
-export async function submitVerifiedReprint({jobId,scannedValue,expectedIdentity,sessionId,send}) {
+export async function submitVerifiedReprint({jobId,scannedValue,expectedIdentity,sessionId,reason,send}) {
   const verifiedScan=verifiedReprintScan(scannedValue,expectedIdentity);
-  return send(`/api/print-jobs/${jobId}/retry`,{method:'POST',body:JSON.stringify({verifiedScan,sessionId})});
+  const retryReason=String(reason??'').trim();
+  if(!retryReason)throw new Error('علت چاپ مجدد را وارد کنید');
+  return send(`/api/print-jobs/${jobId}/retry`,{method:'POST',body:JSON.stringify({verifiedScan,sessionId,reason:retryReason})});
 }

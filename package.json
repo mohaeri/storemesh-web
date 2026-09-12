@@ -1,1 +1,1 @@
-{"name":"@storemesh/web","private":true,"type":"module","scripts":{"test":"node --test"}}
+{"name":"@storemesh/web","private":true,"type":"module","scripts":{"test":"node --test"},"dependencies":{"qrcode-generator":"1.4.4"}}
