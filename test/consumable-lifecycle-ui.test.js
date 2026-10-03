@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';
+const app=fs.readFileSync(new URL('../app.js',import.meta.url),'utf8');
+test('consumables UI exposes permission-gated edit, write-off, delete, and lifecycle actions',()=>{assert.match(app,/data-consumable-edit/);assert.match(app,/data-consumable-toggle/);assert.match(app,/data-consumable-zero/);assert.match(app,/data-consumable-delete/);assert.match(app,/دلیل صفرکردن موجودی/);assert.match(app,/method:'PATCH'/);assert.match(app,/method:'DELETE'/);assert.match(app,/\/zero`/);assert.match(app,/x\.quantity===0/);assert.match(app,/active\?'deactivate':'activate'/);assert.match(app,/can\('master-data:write'\)/)});

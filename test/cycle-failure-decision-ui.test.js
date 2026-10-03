@@ -1,0 +1,2 @@
+import test from'node:test';import assert from'node:assert/strict';import{readFile}from'node:fs/promises';
+test('failed cycles expose manager decisions with a mandatory reason',async()=>{const source=await readFile(new URL('../app.js',import.meta.url),'utf8');for(const token of["FAILED:can('cycle:override')?['resume','restart','scrap']",'شروع مجدد','اسقاط محصول',"cycle.status==='FAILED'",'body.reason=reason.trim()'])assert.ok(source.includes(token),`missing ${token}`)});
