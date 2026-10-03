@@ -31,7 +31,7 @@ test('retry sends both physical scan evidence and trimmed reason',async()=>{
 test('printing dashboard derives presence from registered PRINTER devices',async()=>{
   const source=await readFile(new URL('../app.js',import.meta.url),'utf8');
   const page=source.slice(source.indexOf("case'printing'"),source.indexOf("case'trace'"));
-  assert.match(page,/x\.type==='PRINTER'/);assert.match(page,/x\.presence==='ONLINE'/);assert.match(page,/آفلاین/);assert.match(page,/چاپگری ثبت نشده/);assert.doesNotMatch(page,/● متصل/);
+  assert.match(page,/x\.type==='PRINTER'/);assert.match(page,/x\.presence==='ONLINE'/);assert.match(page,/آفلاین/);assert.match(page,/ابتدا چاپگر را در رجیستری دستگاه‌ها ثبت کنید/);assert.doesNotMatch(page,/● متصل/);
 });
 
 test('retry button never carries or echoes the expected label identity',async()=>{

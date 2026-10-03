@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+
+test('printing settings provide label dimensions data preview and terminal routing',async()=>{const source=await readFile(new URL('../app.js',import.meta.url),'utf8'),page=source.slice(source.indexOf("case'printing'"),source.indexOf("case'trace'"));for(const token of['data-action="label-design"','widthMm','heightMm','dpi','orientation','labelFields','deviceCode','printerCode','strictRouting','label-preview','assignments','templates'])assert.match(page,new RegExp(token));for(const point of['RECEIVING_SINGLE_USE','WASHING_SESSION','DRY_PACKAGE','FREEZE_DRY_PACKAGE','FREEZE_BOX','FRESH_EXPORT_BOX','CARTON'])assert.match(source,new RegExp(point))});
+
+test('label designer creates a versioned LABEL draft with positioned elements',async()=>{const source=await readFile(new URL('../app.js',import.meta.url),'utf8'),handler=source.slice(source.indexOf("if(a==='label-design')"),source.indexOf("if(a==='label-reprint')"));for(const token of['selectedOptions','xMm','yMm','widthMm','heightMm','templateId','assignment','/api/configurations',"scope:'LABEL'"])assert.match(handler,new RegExp(token.replace('/','\\/')))});
