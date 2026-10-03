@@ -179,6 +179,16 @@ function bindShell(){
  $('#menuButton')?.addEventListener('click',()=>document.querySelector('aside').classList.toggle('open'));
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>location.hash=b.dataset.go);
  document.querySelectorAll('form[data-action]').forEach(f=>f.onsubmit=handleForm);
+ const labelDesignForm=document.querySelector('form[data-action="label-design"]');
+ if(labelDesignForm){
+  const activeLabel=(state.data.configurations?.items||[]).find(x=>x.scope==='LABEL'&&x.status==='ACTIVE')?.values||{},labelTemplates=activeLabel.templates||[],labelAssignments=activeLabel.assignments||[];
+  if(labelTemplates.length){
+   const editor=document.createElement('label');editor.innerHTML=`<span>قالب ذخیره‌شده برای ویرایش</span><select data-label-template-editor><option value="">قالب جدید</option>${labelTemplates.map(template=>`<option value="${esc(template.id)}">${esc(template.name)} · ${template.widthMm}×${template.heightMm} mm</option>`).join('')}</select>`;labelDesignForm.prepend(editor);
+   const picker=editor.querySelector('select'),submit=labelDesignForm.querySelector('button[type="submit"],button.primary'),templateId=labelDesignForm.elements.templateId;
+   const loadTemplate=()=>{const template=labelTemplates.find(item=>item.id===picker.value);if(!template){templateId.readOnly=false;templateId.value='';submit.textContent='ذخیره Draft قالب و اتصال';return}const assignment=labelAssignments.find(item=>item.templateId===template.id);templateId.value=template.id;templateId.readOnly=true;labelDesignForm.elements.templateName.value=template.name;labelDesignForm.elements.objectType.value=template.objectType;labelDesignForm.elements.printPoint.value=template.printPoint;labelDesignForm.elements.widthMm.value=template.widthMm;labelDesignForm.elements.heightMm.value=template.heightMm;labelDesignForm.elements.dpi.value=template.dpi;labelDesignForm.elements.orientation.value=template.orientation;const fields=new Set((template.elements||[]).map(element=>element.field).filter(Boolean));[...labelDesignForm.elements.labelFields.options].forEach(option=>option.selected=fields.has(option.value));if(assignment){labelDesignForm.elements.deviceCode.value=assignment.deviceCode||'';labelDesignForm.elements.printerCode.value=assignment.printerCode||''}submit.textContent='ذخیره ویرایش به‌صورت Draft جدید'};
+   picker.addEventListener('change',loadTemplate);
+  }
+ }
  $('#inventorySearch')?.addEventListener('input',e=>{$('#inventoryTable').innerHTML=inventoryTable((state.data.inventory?.items||[]).filter(x=>Object.values(x).some(v=>String(v).toLowerCase().includes(e.target.value.toLowerCase()))))});
  document.querySelectorAll('[data-inventory-ledger]').forEach(button=>button.onclick=()=>act(()=>openInventoryLedgerDialog({document,item:(state.data.inventory?.items||[]).find(x=>x.id===button.dataset.inventoryLedger),apiBase:API,token:state.token})));
  document.querySelectorAll('[data-zone]').forEach(b=>b.onclick=()=>{$('#inventoryTable').innerHTML=inventoryTable((state.data.inventory?.items||[]).filter(x=>x.zone===b.dataset.zone));document.querySelectorAll('[data-zone]').forEach(x=>x.classList.remove('active'));b.classList.add('active')});
